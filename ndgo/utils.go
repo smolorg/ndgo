@@ -97,24 +97,22 @@ is "broadcastable" to the new shape.
 if you use this function, you will have to manually free the result of broadcasted array
 */
 func broadcastArray(arr *Array, shape []int) *Array {
-	var do_copy bool
-
 	res := NewArrayFromShape(shape)
-	do_copy = !(res.Totalsize == arr.Totalsize)
 
-	if !do_copy {
-		res.FromValues(arr.Data)
-	} else {
-		// resultant totalsize of broadcasting one Array (if possible)
-		// will always be a multiple of original Array's totalsize
-		// example: (3, ) and (2, 2, 3)
-		// when the index reaches the original array's boundary,
-		// wrap around to 0
+	n_prepend := len(shape) - arr.Ndim
 
-		boundary := arr.Totalsize
-		for i := 0; i < res.Totalsize; i++ {
-			res.Data[i] = arr.Data[i%boundary]
+	for i := 0; i < res.Totalsize; i++ {
+		srcIdx := 0
+		for dim := 0; dim < arr.Ndim; dim++ {
+			// for dimensions which are not singleton,
+			// use result's n-dimensional index to
+			// calculate the 1D index in source array
+			if arr.Shape[dim] > 1 {
+				srcIdx += (res.Idxs.Indices[i][n_prepend+dim] % arr.Shape[dim]) * arr.Strides[dim]
+			}
 		}
+
+		res.Data[res.Lidxs.Indices[i]] = arr.Data[srcIdx/arr.Itemsize]
 	}
 
 	return res
